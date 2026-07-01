@@ -1,33 +1,38 @@
 import QtQuick 2.15
-import QtQuick.Controls 2.15
 
 Rectangle {
     id: root
-    property string statusText: ""
-    property string statusIcon: ""
-    property color statusColor: "#6b7280"
+
+    property string statusText: "未知状态"
+    property string statusIcon: "○"
+    property color statusColor: "#64748b"
+
     radius: 999
-    color: Qt.rgba(statusColor.r, statusColor.g, statusColor.b, 0.12)
-    implicitHeight: 28
-    implicitWidth: row.implicitWidth + 18
+    implicitHeight: 30
+    implicitWidth: Math.max(112, row.implicitWidth + 22)
+    color: Qt.rgba(statusColor.r, statusColor.g, statusColor.b, 0.11)
+    border.width: 1
+    border.color: Qt.rgba(statusColor.r, statusColor.g, statusColor.b, 0.20)
 
     Row {
         id: row
         anchors.centerIn: parent
-        spacing: 6
+        spacing: 7
 
         Text {
             text: root.statusIcon || "○"
             color: root.statusColor
             font.pixelSize: 13
-            font.bold: true
+            font.weight: Font.Bold
+            verticalAlignment: Text.AlignVCenter
         }
 
         Text {
             text: root.statusText || "未知状态"
             color: root.statusColor
             font.pixelSize: 13
-            font.bold: true
+            font.weight: Font.DemiBold
+            verticalAlignment: Text.AlignVCenter
         }
     }
 }

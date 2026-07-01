@@ -5,17 +5,29 @@ import QtQuick.Dialogs
 
 ApplicationWindow {
     id: root
-    width: 1240
-    height: 780
+
+    width: 1280
+    height: 820
+    minimumWidth: 1100
+    minimumHeight: 720
     visible: true
-    title: "OneDrive 目录重定向管理器"
-    color: "#f3f6fb"
+    title: "OneDrive Redirect Manager"
+    color: "#f6f8fb"
 
     property bool controllerReady: typeof controller !== "undefined" && controller !== null
     property var projectListData: controllerReady ? controller.projectList : []
     property string currentRootText: controllerReady ? controller.currentRoot : ""
     property bool hasRootValue: controllerReady ? controller.hasRoot : false
     property string selectedProjectId: ""
+    property string toastText: ""
+    property bool toastVisible: false
+
+    readonly property color pageBg: "#f6f8fb"
+    readonly property color cardBg: "#ffffff"
+    readonly property color borderColor: "#dde6f2"
+    readonly property color textMain: "#0f172a"
+    readonly property color textSecond: "#64748b"
+    readonly property color brand: "#2563eb"
 
     readonly property var emptyProject: ({
         id: "",
@@ -26,7 +38,7 @@ ApplicationWindow {
         statusCode: "",
         statusText: "未选择项目",
         statusLevel: "muted",
-        statusColor: "#6b7280",
+        statusColor: "#64748b",
         statusIcon: "○",
         message: "请选择一个同步项目。"
     })
@@ -38,26 +50,6 @@ ApplicationWindow {
             }
         }
         return emptyProject
-    }
-
-    function openCreateDialog() {
-        projectDialog.editMode = false
-        projectDialog.projectId = ""
-        projectDialog.nameValue = ""
-        projectDialog.localPathValue = ""
-        projectDialog.cloudPathValue = "data/"
-        projectDialog.open()
-    }
-
-    function openEditDialog() {
-        if (!selectedProjectId)
-            return
-        projectDialog.editMode = true
-        projectDialog.projectId = selectedProject.id || ""
-        projectDialog.nameValue = selectedProject.name || ""
-        projectDialog.localPathValue = selectedProject.localPath || ""
-        projectDialog.cloudPathValue = selectedProject.cloudRelativePath || "data/"
-        projectDialog.open()
     }
 
     function safeString(value, fallback) {
@@ -80,6 +72,57 @@ ApplicationWindow {
         return ""
     }
 
+    function showToast(message) {
+        toastText = message || "操作完成。"
+        toastVisible = true
+        toastTimer.restart()
+    }
+
+    function openCreateDialog() {
+        if (!hasRootValue) {
+            settingsDialog.open()
+            showToast("请先设置 OneDrive 根目录。")
+            return
+        }
+        projectDialog.editMode = false
+        projectDialog.projectId = ""
+        projectDialog.nameValue = ""
+        projectDialog.localPathValue = ""
+        projectDialog.cloudPathValue = "data/"
+        projectDialog.open()
+    }
+
+    function openEditDialog() {
+        if (!selectedProjectId)
+            return
+        projectDialog.editMode = true
+        projectDialog.projectId = selectedProject.id || ""
+        projectDialog.nameValue = selectedProject.name || ""
+        projectDialog.localPathValue = selectedProject.localPath || ""
+        projectDialog.cloudPathValue = selectedProject.cloudRelativePath || "data/"
+        projectDialog.open()
+    }
+
+    function handleProjectContextAction(action, projectId) {
+        selectedProjectId = projectId || selectedProjectId
+        if (action === "refresh") {
+            controller.refreshProjects()
+        } else if (action === "edit") {
+            openEditDialog()
+        } else if (action === "delete") {
+            deleteConfirm.open()
+        } else if (action === "settings") {
+            settingsDialog.open()
+        }
+    }
+
+    Timer {
+        id: toastTimer
+        interval: 2300
+        repeat: false
+        onTriggered: toastVisible = false
+    }
+
     SettingsDialog {
         id: settingsDialog
         currentRoot: currentRootText
@@ -89,6 +132,7 @@ ApplicationWindow {
 
     ProjectEditorDialog {
         id: projectDialog
+        currentRoot: currentRootText
         onSubmit: function(payload) {
             if (editMode) {
                 controller.updateProject(selectedProjectId, payload)
@@ -126,8 +170,7 @@ ApplicationWindow {
         }
 
         function onMessageOccurred(message) {
-            infoDialog.text = message
-            infoDialog.open()
+            showToast(message)
         }
 
         function onConflictRequired(action, payload) {
@@ -146,86 +189,151 @@ ApplicationWindow {
         buttons: MessageDialog.Ok
     }
 
-    MessageDialog {
-        id: infoDialog
-        title: "提示"
-        buttons: MessageDialog.Ok
-    }
-
     Dialog {
         id: deleteConfirm
         modal: true
-        title: "删除同步项目"
+        width: 660
+        x: parent ? Math.round((parent.width - width) / 2) : 0
+        y: parent ? Math.round((parent.height - implicitHeight) / 2) : 0
+        padding: 0
         standardButtons: Dialog.NoButton
-        width: 560
+        title: ""
         property bool deleteCloud: false
         property bool deleteLocalLink: false
 
         onOpened: {
-            deleteCloud = false
-            deleteLocalLink = false
+            deleteCloudCheckbox.checked = false
+            deleteLocalLinkCheckbox.checked = false
+        }
+
+        background: Rectangle {
+            radius: 22
+            color: "#ffffff"
+            border.color: "#fecaca"
+            border.width: 1
         }
 
         contentItem: ColumnLayout {
-            spacing: 14
+            spacing: 0
 
-            Text {
+            Rectangle {
                 Layout.fillWidth: true
-                text: "即将删除同步项目。\n\n删除后，软件将不再管理该同步关系。\n如果本地路径当前是链接，原软件可能无法继续正常访问该路径。"
-                wrapMode: Text.WordWrap
-                color: "#111827"
-                font.pixelSize: 14
+                height: 84
+                radius: 22
+                color: "#fef2f2"
+                border.color: "#fecaca"
+
+                RowLayout {
+                    anchors.fill: parent
+                    anchors.margins: 20
+                    spacing: 14
+
+                    Rectangle {
+                        width: 44
+                        height: 44
+                        radius: 16
+                        color: "#fee2e2"
+                        Text { anchors.centerIn: parent; text: "×"; color: "#b91c1c"; font.pixelSize: 26; font.weight: Font.Bold }
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 3
+                        Text { text: "删除同步项目"; color: "#991b1b"; font.pixelSize: 22; font.weight: Font.Bold }
+                        Text { text: "删除后软件将不再管理该同步关系。请确认是否同时清理云端目标或本地链接。"; color: "#b91c1c"; font.pixelSize: 13; wrapMode: Text.WordWrap }
+                    }
+                }
             }
 
-            CheckBox {
-                id: deleteCloudCheckbox
-                text: "同时删除 OneDrive 中的目标文件夹"
-                checked: false
-                onCheckedChanged: deleteConfirm.deleteCloud = checked
-            }
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.margins: 22
+                spacing: 14
 
-            CheckBox {
-                id: deleteLocalLinkCheckbox
-                text: "同时删除本地链接"
-                checked: false
-                onCheckedChanged: deleteConfirm.deleteLocalLink = checked
-            }
+                Rectangle {
+                    Layout.fillWidth: true
+                    radius: 16
+                    color: "#f8fafc"
+                    border.color: "#e5ebf3"
+                    implicitHeight: deleteInfo.implicitHeight + 28
 
-            RowLayout {
-                Layout.alignment: Qt.AlignRight
-                spacing: 10
-
-                AnimatedButton {
-                    text: "取消"
-                    baseColor: "#94a3b8"
-                    onClicked: deleteConfirm.close()
+                    Text {
+                        id: deleteInfo
+                        anchors.fill: parent
+                        anchors.margins: 14
+                        text: "即将删除项目：" + safeString(selectedProject.name, selectedProject.id) + "\n\n如果本地路径当前是链接，原软件可能无法继续正常访问该路径。"
+                        color: "#334155"
+                        font.pixelSize: 14
+                        wrapMode: Text.WordWrap
+                    }
                 }
 
-                AnimatedButton {
-                    text: "确认删除"
-                    baseColor: "#b3261e"
-                    onClicked: {
-                        if (deleteConfirm.deleteCloud) {
-                            var lines = []
-                            lines.push("即将删除 OneDrive 中的目标文件夹：")
-                            lines.push("")
-                            lines.push(selectedCloudAbsolutePath())
-                            if (deleteConfirm.deleteLocalLink) {
+                CheckBox {
+                    id: deleteCloudCheckbox
+                    text: "同时删除 OneDrive 中的目标文件夹"
+                    checked: false
+                    onCheckedChanged: deleteConfirm.deleteCloud = checked
+                }
+
+                CheckBox {
+                    id: deleteLocalLinkCheckbox
+                    text: "同时删除本地链接"
+                    checked: false
+                    onCheckedChanged: deleteConfirm.deleteLocalLink = checked
+                }
+
+                Rectangle {
+                    Layout.fillWidth: true
+                    radius: 14
+                    color: "#fff7ed"
+                    border.color: "#fed7aa"
+                    implicitHeight: 54
+                    Text {
+                        anchors.fill: parent
+                        anchors.margins: 12
+                        text: "删除本地链接只删除 junction 入口，不删除 OneDrive 中的真实数据，也不会删除本地父目录。"
+                        color: "#9a3412"
+                        font.pixelSize: 12
+                        wrapMode: Text.WordWrap
+                        verticalAlignment: Text.AlignVCenter
+                    }
+                }
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+                    Item { Layout.fillWidth: true }
+
+                    AnimatedButton { text: "取消"; subtle: true; onClicked: deleteConfirm.close() }
+
+                    AnimatedButton {
+                        text: "确认删除"
+                        baseColor: "#dc2626"
+                        hoverColor: "#fee2e2"
+                        pressedColor: "#fecaca"
+                        onClicked: {
+                            if (deleteConfirm.deleteCloud) {
+                                var lines = []
+                                lines.push("即将删除 OneDrive 中的目标文件夹：")
                                 lines.push("")
-                                lines.push("同时将删除本地链接入口：")
+                                lines.push(selectedCloudAbsolutePath())
+                                if (deleteConfirm.deleteLocalLink) {
+                                    lines.push("")
+                                    lines.push("同时将删除本地链接入口：")
+                                    lines.push("")
+                                    lines.push(selectedLocalPath())
+                                    lines.push("")
+                                    lines.push("删除本地链接只会删除 junction 入口，不会删除 OneDrive 中的真实数据。")
+                                }
                                 lines.push("")
-                                lines.push(selectedLocalPath())
-                                lines.push("")
-                                lines.push("删除本地链接只会删除 junction 入口，不会删除 OneDrive 中的真实数据。")
+                                lines.push("此操作不可自动恢复。")
+                                cloudDeleteConfirm.text = lines.join("\n")
+                                cloudDeleteConfirm.open()
+                            } else if (selectedProjectId) {
+                                controller.deleteProject(selectedProjectId, false, deleteConfirm.deleteLocalLink)
                             }
-                            lines.push("")
-                            lines.push("此操作不可自动恢复。")
-                            cloudDeleteConfirm.text = lines.join("\n")
-                            cloudDeleteConfirm.open()
-                        } else if (selectedProjectId) {
-                            controller.deleteProject(selectedProjectId, false, deleteConfirm.deleteLocalLink)
+                            deleteConfirm.close()
                         }
-                        deleteConfirm.close()
                     }
                 }
             }
@@ -245,83 +353,133 @@ ApplicationWindow {
 
     Rectangle {
         anchors.fill: parent
-        color: "#f3f6fb"
+        color: root.pageBg
     }
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 20
+        anchors.margins: 22
         spacing: 16
 
         Rectangle {
             Layout.fillWidth: true
-            radius: 24
-            color: "#ffffff"
-            border.color: "#dbe3f0"
+            implicitHeight: 132
+            radius: 26
+            color: root.cardBg
+            border.color: root.borderColor
             border.width: 1
-            implicitHeight: 110
 
-            ColumnLayout {
+            RowLayout {
                 anchors.fill: parent
-                anchors.margins: 18
-                spacing: 8
+                anchors.margins: 22
+                spacing: 18
 
-                Text {
-                    text: "OneDrive 目录重定向管理器"
-                    color: "#111827"
-                    font.pixelSize: 28
-                    font.bold: true
+                Rectangle {
+                    width: 58
+                    height: 58
+                    radius: 18
+                    color: "#eaf2ff"
+                    border.color: "#dbeafe"
+                    Text { anchors.centerIn: parent; text: "↗"; color: root.brand; font.pixelSize: 32; font.weight: Font.Bold }
                 }
 
-                Text {
+                ColumnLayout {
                     Layout.fillWidth: true
-                    text: hasRootValue
-                        ? ("当前 OneDrive 根目录： " + currentRootText)
-                        : "当前尚未设置 OneDrive 根目录，请先在设置中选择。"
-                    color: hasRootValue ? "#475569" : "#b45309"
-                    font.pixelSize: 14
-                    elide: Text.ElideMiddle
+                    spacing: 8
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        spacing: 10
+
+                        Text {
+                            text: "OneDrive Redirect Manager"
+                            color: root.textMain
+                            font.pixelSize: 30
+                            font.weight: Font.Bold
+                        }
+
+                        Rectangle {
+                            radius: 999
+                            color: hasRootValue ? "#e8f7ee" : "#fff7ed"
+                            border.color: hasRootValue ? "#bbf7d0" : "#fed7aa"
+                            implicitHeight: 28
+                            implicitWidth: statusText.implicitWidth + 22
+                            Text {
+                                id: statusText
+                                anchors.centerIn: parent
+                                text: hasRootValue ? "根目录已设置" : "未设置根目录"
+                                color: hasRootValue ? "#15803d" : "#b45309"
+                                font.pixelSize: 12
+                                font.weight: Font.Bold
+                            }
+                        }
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: "轻量级 OneDrive 目录重定向工具"
+                        color: root.textSecond
+                        font.pixelSize: 14
+                        elide: Text.ElideRight
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: "在数据原路径创建 junction 链接，真实数据保存到 OneDrive"
+                        color: "#94a3b8"
+                        font.pixelSize: 13
+                        elide: Text.ElideRight
+                    }
+                }
+
+                RowLayout {
+                    spacing: 10
+                    Layout.alignment: Qt.AlignTop
+
+                    AnimatedButton { text: "＋ 新建"; enabled: controllerReady; onClicked: openCreateDialog() }
+                    AnimatedButton { text: "刷新"; subtle: true; enabled: controllerReady; onClicked: controller.refreshProjects() }
+                    AnimatedButton { text: "设置"; subtle: true; enabled: controllerReady; onClicked: settingsDialog.open() }
                 }
             }
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: 10
-
-            AnimatedButton { text: "新建"; enabled: controllerReady; onClicked: openCreateDialog() }
-            AnimatedButton { text: "编辑"; enabled: controllerReady && !!selectedProjectId; onClicked: openEditDialog() }
-            AnimatedButton {
-                text: "删除"
-                enabled: controllerReady && !!selectedProjectId
-                baseColor: "#b3261e"
-                onClicked: deleteConfirm.open()
-            }
-            AnimatedButton { text: "刷新"; baseColor: "#475569"; enabled: controllerReady; onClicked: controller.refreshProjects() }
-            AnimatedButton { text: "设置"; baseColor: "#475569"; enabled: controllerReady; onClicked: settingsDialog.open() }
-            AnimatedButton {
-                text: "恢复到本地并取消同步"
-                baseColor: "#0f766e"
-                enabled: controllerReady && !!selectedProjectId
-                onClicked: controller.restoreProjectToLocal(selectedProjectId)
-            }
-
-            Item { Layout.fillWidth: true }
         }
 
         Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            radius: 24
-            color: "#ffffff"
-            border.color: "#dbe3f0"
+            radius: 26
+            color: root.cardBg
+            border.color: root.borderColor
             border.width: 1
 
-            Loader {
+            ColumnLayout {
                 anchors.fill: parent
-                anchors.margins: 14
-                active: true
-                sourceComponent: projectListData.length > 0 ? tableComponent : emptyComponent
+                anchors.margins: 16
+                spacing: 14
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 10
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 3
+                        Text { text: "同步项目"; color: root.textMain; font.pixelSize: 18; font.weight: Font.Bold }
+                        Text { text: "双击项目可编辑；右键项目可打开管理菜单。"; color: root.textSecond; font.pixelSize: 12 }
+                    }
+
+                    StatusBadge {
+                        statusText: selectedProjectId ? safeString(selectedProject.statusText, "未知状态") : "未选择项目"
+                        statusColor: selectedProjectId ? safeString(selectedProject.statusColor, "#64748b") : "#64748b"
+                        statusIcon: selectedProjectId ? safeString(selectedProject.statusIcon, "○") : "○"
+                    }
+                }
+
+                Loader {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    active: true
+                    sourceComponent: projectListData.length > 0 ? tableComponent : emptyComponent
+                }
             }
 
             Component {
@@ -329,8 +487,8 @@ ApplicationWindow {
                 EmptyState {
                     title: hasRootValue ? "还没有同步项目" : "请先设置 OneDrive 根目录"
                     description: hasRootValue
-                        ? "点击上方“新建”按钮，创建第一个同步项目。"
-                        : "打开“设置”，选择一个 OneDrive 工作目录后再继续。"
+                        ? "点击右上角“新建”，选择本地源文件夹和 OneDrive 路径。"
+                        : "打开右上角“设置”，选择一个 OneDrive 工作目录后再继续。"
                 }
             }
 
@@ -344,58 +502,116 @@ ApplicationWindow {
                         selectedProjectId = projectId
                         openEditDialog()
                     }
+                    onContextAction: function(action, projectId) {
+                        handleProjectContextAction(action, projectId)
+                    }
                 }
             }
         }
 
         Rectangle {
             Layout.fillWidth: true
-            radius: 20
-            color: "#ffffff"
-            border.color: "#dbe3f0"
+            implicitHeight: 112
+            radius: 22
+            color: root.cardBg
+            border.color: root.borderColor
             border.width: 1
-            implicitHeight: 108
 
-            ColumnLayout {
+            RowLayout {
                 anchors.fill: parent
                 anchors.margins: 16
-                spacing: 8
+                spacing: 14
 
-                Text {
-                    text: selectedProjectId
-                        ? ("已选项目： " + safeString(selectedProject.name, "") + "（" + safeString(selectedProject.id, "") + "）")
-                        : "请选择一个同步项目"
-                    color: "#111827"
-                    font.pixelSize: 16
-                    font.bold: true
+                Rectangle {
+                    width: 52
+                    height: 52
+                    radius: 18
+                    color: selectedProjectId ? "#eef5ff" : "#f1f5f9"
+                    Text { anchors.centerIn: parent; text: selectedProjectId ? "✓" : "·"; color: selectedProjectId ? root.brand : "#94a3b8"; font.pixelSize: 26; font.weight: Font.Bold }
                 }
 
-                RowLayout {
-                    spacing: 10
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 6
 
-                    StatusBadge {
-                        statusText: safeString(selectedProject.statusText, "未选择项目")
-                        statusColor: safeString(selectedProject.statusColor, "#6b7280")
-                        statusIcon: safeString(selectedProject.statusIcon, "○")
+                    Text {
+                        Layout.fillWidth: true
+                        text: selectedProjectId
+                            ? (safeString(selectedProject.name, "未命名项目") + "  ·  " + safeString(selectedProject.id, ""))
+                            : "请选择一个同步项目"
+                        color: root.textMain
+                        font.pixelSize: 16
+                        font.weight: Font.Bold
+                        elide: Text.ElideRight
                     }
 
                     Text {
                         Layout.fillWidth: true
-                        text: safeString(selectedProject.message, "请选择一个同步项目，查看当前状态。")
-                        color: "#475569"
+                        text: selectedProjectId
+                            ? safeString(selectedProject.message, "当前状态正常。")
+                            : "选择项目后，可在这里查看路径、状态和操作提示。"
+                        color: root.textSecond
+                        font.pixelSize: 13
                         elide: Text.ElideRight
+                    }
+
+                    Text {
+                        Layout.fillWidth: true
+                        text: selectedProjectId
+                            ? ("本地：" + safeString(selectedProject.localPath, "未配置") + "    云端：" + safeString(selectedProject.cloudRelativePath, ""))
+                            : ""
+                        color: "#94a3b8"
+                        font.pixelSize: 12
+                        elide: Text.ElideMiddle
                     }
                 }
 
-                Text {
-                    Layout.fillWidth: true
-                    text: selectedProjectId
-                        ? ("本地：" + safeString(selectedProject.localPath, "") + "    云端：" + safeString(selectedProject.cloudRelativePath, ""))
-                        : "双击列表项可直接编辑项目。"
-                    color: "#64748b"
-                    elide: Text.ElideMiddle
+                ColumnLayout {
+                    Layout.alignment: Qt.AlignRight | Qt.AlignVCenter
+                    spacing: 10
+
+                    AnimatedButton {
+                        text: "恢复到本地并取消同步"
+                        baseColor: "#0f766e"
+                        hoverColor: "#ccfbf1"
+                        pressedColor: "#99f6e4"
+                        enabled: controllerReady && !!selectedProjectId
+                        onClicked: controller.restoreProjectToLocal(selectedProjectId)
+                    }
+
+                    Text {
+                        text: "Developed by @ryancyx/github.com"
+                        color: "#94a3b8"
+                        font.pixelSize: 12
+                        horizontalAlignment: Text.AlignRight
+                        Layout.alignment: Qt.AlignRight
+                    }
                 }
             }
+        }
+    }
+
+    Rectangle {
+        id: toast
+        visible: opacity > 0
+        opacity: toastVisible ? 1 : 0
+        width: Math.min(parent.width - 80, toastLabel.implicitWidth + 42)
+        height: 44
+        radius: 14
+        color: "#0f172a"
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 28
+
+
+        Text {
+            id: toastLabel
+            anchors.centerIn: parent
+            text: toastText
+            color: "#ffffff"
+            font.pixelSize: 13
+            font.weight: Font.DemiBold
+            elide: Text.ElideRight
         }
     }
 
