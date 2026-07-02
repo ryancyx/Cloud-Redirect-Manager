@@ -28,7 +28,7 @@ Cloud 中保存真实数据的位置
 
 > 当前发布形式为 **v1.0.5 绿色版**。解压后即可运行。
 
-在 GitHub Release 页面下载：
+在 Release 页面下载：
 
 ```text
 CloudRedirectManager_v1.0.5_windows_x64_green.zip
@@ -41,41 +41,11 @@ CloudRedirectManager_v1.0.5_windows_x64_green.zip
 3. 进入解压后的目录
 4. 双击运行 `CloudRedirectManager.exe`
 
-注意：请不要只复制单个 `.exe` 文件。需要保留同目录下的 `_internal` 文件夹。
+注意：请不要只复制单个 `.exe` 文件，软件运行需要保留同目录下的 `_internal` 文件夹。
 
 
 ---
-
-## 🎯 项目定位
-
-Cloud Redirect Manager 只专注一个场景：
-
-> 将原本只能保存在固定本地路径的数据，通过 junction 链接重定向到本机 Cloud 同步目录中，从而借助云盘客户端实现云端保存和同步。
-
-软件当前重点支持：
-
-* 单 Cloud 工作目录配置
-* 多项目重定向关系管理
-* 本地目录与 Cloud 目录状态检查
-* junction 创建与删除
-* 冲突检测与本地备份
-* 恢复到本地并取消同步
-* 删除时可选择是否删除 Cloud 目标和本地链接
-* 中文路径与中文项目名
-* 操作中 busy overlay
-* Windows 绿色版封装运行
-
-典型用途包括：
-
-* 游戏存档同步
-* 软件配置目录同步
-* 项目数据目录同步
-* 固定路径应用数据迁移到 Cloud
-* 避免手动编写 `mklink /J` 命令
-
----
-
-## 🖼️ 软件截图
+## 🖼️ 界面截图
 
 ### 主界面
 
@@ -99,7 +69,7 @@ Cloud Redirect Manager 只专注一个场景：
 
 ### 1. Cloud 工作目录设置
 
-用户可以选择一个本机云盘同步目录内的文件夹作为软件工作目录，例如：
+可以选择一个本机云盘同步目录内的文件夹作为软件工作目录，例如：
 
 ```text
 D:\CloudDrive\Saved\CRM
@@ -214,14 +184,6 @@ D:\ODR_ManualTest\Local\conflict-backup_backup
 
 ---
 
-### 7. 操作中提示
-
-对于新建、删除、恢复等可能耗时的操作，软件会显示全局 busy overlay。
-
-该提示使用无限 busy 指示器，不显示虚假的百分比进度。操作期间主界面会暂时不可交互，避免重复提交。
-
----
-
 ## 🛠️ 技术栈
 
 | 模块 | 技术 |
@@ -230,7 +192,7 @@ D:\ODR_ManualTest\Local\conflict-backup_backup
 | 桌面界面 | PySide6 + QML |
 | 链接机制 | Windows junction |
 | 配置格式 | JSON |
-| 测试工具 | pytest |
+| 测试工具 | Pytest |
 | 打包工具 | PyInstaller |
 | 运行平台 | Windows 10 / Windows 11 |
 
@@ -375,11 +337,8 @@ D:\CloudDrive\Saved\CRM\data\example-game
 * 本地不存在时接管云端目录
 * 冲突检测与本地 `_backup` 备份
 * 恢复到本地并取消同步
-* 四种删除组合
-* 中文路径与中文项目名
+* 兼容中文路径与中文项目名
 * 真实 Cloud 目录删除 fallback
-* 操作中 busy overlay
-* Windows 绿色版封装
 
 ---
 
@@ -469,7 +428,7 @@ D:\CloudDrive\Saved\CRM
 
 ## 👤 开发相关
 
-* 开发者：Developed by [@ryancyx](https://github.com/ryancyx)
+* 开发者：Developed by Ryan Cheung[@ryancyx](https://github.com/ryancyx)
 * 项目类型：Windows 桌面工具 / Cloud 目录重定向管理器
 
 ---
