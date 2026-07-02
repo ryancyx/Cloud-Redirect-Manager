@@ -12,6 +12,7 @@ Dialog {
     property string localPathValue: ""
     property string cloudPathValue: "data/"
     property string currentRoot: ""
+    property bool busy: false
     signal submit(var payload)
 
     modal: true
@@ -241,6 +242,7 @@ Dialog {
                                 AnimatedButton {
                                     text: "选择"
                                     subtle: true
+                                    enabled: !root.busy
                                     onClicked: localFolderDialog.open()
                                 }
                             }
@@ -285,7 +287,7 @@ Dialog {
                                 AnimatedButton {
                                     text: "选择"
                                     subtle: true
-                                    enabled: root.currentRoot.length > 0
+                                    enabled: root.currentRoot.length > 0 && !root.busy
                                     onClicked: cloudFolderDialog.open()
                                 }
                             }
@@ -337,11 +339,13 @@ Dialog {
                     AnimatedButton {
                         text: "取消"
                         subtle: true
+                        enabled: !root.busy
                         onClicked: root.close()
                     }
 
                     AnimatedButton {
                         text: root.editMode ? "保存修改" : "创建项目"
+                        enabled: !root.busy
                         onClicked: {
                             root.submit({
                                 "id": idField.text.trim(),

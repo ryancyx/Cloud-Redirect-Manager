@@ -7,6 +7,7 @@ Item {
 
     property var modelData: []
     property string selectedId: ""
+    property bool busy: false
     signal projectSelected(string projectId)
     signal projectDoubleClicked(string projectId)
     signal contextAction(string action, string projectId)
@@ -75,14 +76,14 @@ Item {
                 MouseArea {
                     id: rowMouse
                     anchors.fill: parent
+                    enabled: !root.busy
                     hoverEnabled: true
                     acceptedButtons: Qt.LeftButton | Qt.RightButton
 
                     onClicked: function(mouse) {
                         root.projectSelected(modelData.id || "")
-                        if (mouse.button === Qt.RightButton) {
+                        if (mouse.button === Qt.RightButton)
                             contextMenu.popup(mouse.x, mouse.y)
-                        }
                     }
 
                     onDoubleClicked: function(mouse) {
@@ -93,22 +94,27 @@ Item {
 
                 Menu {
                     id: contextMenu
+                    enabled: !root.busy
                     width: 150
 
                     MenuItem {
                         text: "刷新"
+                        enabled: !root.busy
                         onTriggered: root.contextAction("refresh", modelData.id || "")
                     }
                     MenuItem {
                         text: "编辑"
+                        enabled: !root.busy
                         onTriggered: root.contextAction("edit", modelData.id || "")
                     }
                     MenuItem {
                         text: "删除"
+                        enabled: !root.busy
                         onTriggered: root.contextAction("delete", modelData.id || "")
                     }
                     MenuItem {
                         text: "设置"
+                        enabled: !root.busy
                         onTriggered: root.contextAction("settings", modelData.id || "")
                     }
                 }

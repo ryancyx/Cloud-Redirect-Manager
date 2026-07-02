@@ -9,6 +9,7 @@ from pathlib import Path
 from .junction_ops import is_junction_or_reparse_point
 
 logger = logging.getLogger(__name__)
+WINDOWS_RMDIR_TIMEOUT_SECONDS = 30
 
 
 def ensure_dir(path: Path) -> Path:
@@ -86,13 +87,25 @@ def remove_tree(path: Path) -> None:
             logger.exception("Directory deletion failed without Windows fallback: %s", target)
             raise RuntimeError(f"删除目录失败：{target}；原因：{exc}") from exc
 
-        result = subprocess.run(
-            ["cmd", "/c", "rmdir", "/S", "/Q", str(target)],
-            capture_output=True,
-            text=True,
-            shell=False,
-            check=False,
-        )
+        try:
+            result = subprocess.run(
+                ["cmd", "/c", "rmdir", "/S", "/Q", str(target)],
+                capture_output=True,
+                text=True,
+                shell=False,
+                check=False,
+                timeout=WINDOWS_RMDIR_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired as timeout_exc:
+            details = (
+                f"删除目录超时：{target}；超时：{WINDOWS_RMDIR_TIMEOUT_SECONDS} 秒；"
+                "建议关闭占用该目录的程序或等待 OneDrive 同步完成后重试"
+            )
+            if target.exists():
+                details = f"{details}；原因：{timeout_exc}"
+            logger.error("Windows rmdir fallback timed out for %s after %s seconds", target, WINDOWS_RMDIR_TIMEOUT_SECONDS)
+            raise RuntimeError(details) from timeout_exc
+
         if target.exists():
             stderr = (result.stderr or "").strip()
             stdout = (result.stdout or "").strip()

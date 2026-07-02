@@ -6,6 +6,7 @@ Dialog {
     id: root
 
     property string currentRoot: ""
+    property bool busy: false
     signal chooseRootClicked()
     signal openLogClicked()
 
@@ -159,12 +160,14 @@ Dialog {
 
                     AnimatedButton {
                         text: "更改 OneDrive 根目录"
+                        enabled: !root.busy
                         onClicked: root.chooseRootClicked()
                     }
 
                     AnimatedButton {
                         text: "打开日志目录"
                         subtle: true
+                        enabled: !root.busy
                         onClicked: root.openLogClicked()
                     }
 
@@ -173,6 +176,7 @@ Dialog {
                     AnimatedButton {
                         text: "关闭"
                         subtle: true
+                        enabled: !root.busy
                         onClicked: root.close()
                     }
                 }

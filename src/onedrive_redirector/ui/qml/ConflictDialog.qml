@@ -7,6 +7,7 @@ Dialog {
 
     property string localPath: ""
     property string cloudPath: ""
+    property bool busy: false
     signal choose(string strategy)
 
     modal: true
@@ -102,6 +103,7 @@ Dialog {
                 Layout.fillWidth: true
                 text: "备份本地文件夹，并使用云端数据"
                 baseColor: "#b45309"
+                enabled: !root.busy
                 onClicked: root.choose("use_cloud")
             }
 
@@ -109,13 +111,14 @@ Dialog {
                 Layout.fillWidth: true
                 text: "备份云端文件夹，并使用本地数据"
                 baseColor: "#dc2626"
+                enabled: !root.busy
                 onClicked: root.choose("use_local")
             }
 
             RowLayout {
                 Layout.fillWidth: true
                 Item { Layout.fillWidth: true }
-                AnimatedButton { text: "取消"; subtle: true; onClicked: root.close() }
+                AnimatedButton { text: "取消"; subtle: true; enabled: !root.busy; onClicked: root.close() }
             }
         }
     }

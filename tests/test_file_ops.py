@@ -73,7 +73,7 @@ def test_remove_tree_uses_windows_rmdir_fallback_after_python_delete_failure(
         calls.append(("rmtree", Path(path)))
         raise PermissionError("python delete failed")
 
-    def fake_run(command: list[str], capture_output: bool, text: bool, shell: bool, check: bool):
+    def fake_run(command: list[str], capture_output: bool, text: bool, shell: bool, check: bool, timeout: int):
         calls.append(("run", tuple(command)))
         for child in target.rglob("*"):
             if child.is_file():
@@ -104,3 +104,31 @@ def test_remove_tree_rejects_reparse_point(tmp_path: Path, monkeypatch: pytest.M
 
     with pytest.raises(RuntimeError, match="目标是链接入口，不允许作为云端目录递归删除"):
         remove_tree(target)
+
+
+def test_remove_tree_reports_timeout_for_windows_rmdir_fallback(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    target = tmp_path / "cloud" / "project"
+    target.mkdir(parents=True)
+    (target / "data.txt").write_text("hello", encoding="utf-8")
+
+    monkeypatch.setattr(file_ops_module, "is_junction_or_reparse_point", lambda path: False)
+    monkeypatch.setattr(file_ops_module.os, "name", "nt", raising=False)
+
+    def fake_rmtree(path: Path) -> None:
+        raise PermissionError("python delete failed")
+
+    def fake_run(command: list[str], **kwargs):
+        raise file_ops_module.subprocess.TimeoutExpired(command, file_ops_module.WINDOWS_RMDIR_TIMEOUT_SECONDS)
+
+    monkeypatch.setattr(file_ops_module.shutil, "rmtree", fake_rmtree)
+    monkeypatch.setattr(file_ops_module.subprocess, "run", fake_run)
+
+    with pytest.raises(RuntimeError) as exc_info:
+        remove_tree(target)
+
+    message = str(exc_info.value)
+    assert str(target) in message
+    assert f"超时：{file_ops_module.WINDOWS_RMDIR_TIMEOUT_SECONDS} 秒" in message
+    assert "建议关闭占用该目录的程序或等待 OneDrive 同步完成后重试" in message

@@ -21,6 +21,8 @@ ApplicationWindow {
     property string selectedProjectId: ""
     property string toastText: ""
     property bool toastVisible: false
+    readonly property bool controllerBusy: controllerReady ? controller.busy : false
+    readonly property string controllerBusyText: controllerReady ? controller.busyText : ""
 
     readonly property color pageBg: "#f6f8fb"
     readonly property color cardBg: "#ffffff"
@@ -79,6 +81,8 @@ ApplicationWindow {
     }
 
     function openCreateDialog() {
+        if (controllerBusy)
+            return
         if (!hasRootValue) {
             settingsDialog.open()
             showToast("请先设置 OneDrive 根目录。")
@@ -93,6 +97,8 @@ ApplicationWindow {
     }
 
     function openEditDialog() {
+        if (controllerBusy)
+            return
         if (!selectedProjectId)
             return
         projectDialog.editMode = true
@@ -104,6 +110,8 @@ ApplicationWindow {
     }
 
     function handleProjectContextAction(action, projectId) {
+        if (controllerBusy)
+            return
         selectedProjectId = projectId || selectedProjectId
         if (action === "refresh") {
             controller.refreshProjects()
@@ -126,6 +134,7 @@ ApplicationWindow {
     SettingsDialog {
         id: settingsDialog
         currentRoot: currentRootText
+        busy: controllerBusy
         onChooseRootClicked: controller.chooseOneDriveRoot()
         onOpenLogClicked: controller.openLogDirectory()
     }
@@ -133,6 +142,7 @@ ApplicationWindow {
     ProjectEditorDialog {
         id: projectDialog
         currentRoot: currentRootText
+        busy: controllerBusy
         onSubmit: function(payload) {
             if (editMode) {
                 controller.updateProject(selectedProjectId, payload)
@@ -145,6 +155,7 @@ ApplicationWindow {
 
     ConflictDialog {
         id: conflictDialog
+        busy: controllerBusy
         onChoose: function(strategy) {
             controller.resolveConflict(strategy)
             close()
@@ -191,6 +202,7 @@ ApplicationWindow {
 
     Dialog {
         id: deleteConfirm
+        enabled: !controllerBusy
         modal: true
         width: 660
         x: parent ? Math.round((parent.width - width) / 2) : 0
@@ -357,6 +369,7 @@ ApplicationWindow {
     }
 
     ColumnLayout {
+        enabled: !controllerBusy
         anchors.fill: parent
         anchors.margins: 22
         spacing: 16
@@ -496,6 +509,7 @@ ApplicationWindow {
                 id: tableComponent
                 ProjectTable {
                     modelData: projectListData
+                    busy: controllerBusy
                     selectedId: selectedProjectId
                     onProjectSelected: function(projectId) { selectedProjectId = projectId }
                     onProjectDoubleClicked: function(projectId) {
@@ -575,7 +589,7 @@ ApplicationWindow {
                         baseColor: "#0f766e"
                         hoverColor: "#ccfbf1"
                         pressedColor: "#99f6e4"
-                        enabled: controllerReady && !!selectedProjectId
+                        enabled: controllerReady && !!selectedProjectId && !controllerBusy
                         onClicked: controller.restoreProjectToLocal(selectedProjectId)
                     }
 
@@ -586,6 +600,57 @@ ApplicationWindow {
                         horizontalAlignment: Text.AlignRight
                         Layout.alignment: Qt.AlignRight
                     }
+                }
+            }
+        }
+    }
+
+    Rectangle {
+        visible: controllerBusy
+        anchors.fill: parent
+        z: 1000
+        color: "#7a0f172a"
+
+        MouseArea {
+            anchors.fill: parent
+        }
+
+        Rectangle {
+            width: Math.min(460, parent.width - 48)
+            radius: 22
+            color: "#ffffff"
+            border.color: "#dbe4ef"
+            border.width: 1
+            anchors.centerIn: parent
+            implicitHeight: overlayColumn.implicitHeight + 40
+
+            ColumnLayout {
+                id: overlayColumn
+                anchors.fill: parent
+                anchors.margins: 20
+                spacing: 14
+
+                Text {
+                    text: "正在处理"
+                    color: root.textMain
+                    font.pixelSize: 22
+                    font.weight: Font.Bold
+                }
+
+                Text {
+                    Layout.fillWidth: true
+                    text: controllerBusyText
+                    color: root.textSecond
+                    font.pixelSize: 14
+                    wrapMode: Text.WordWrap
+                }
+
+                BusyIndicator {
+                    Layout.alignment: Qt.AlignHCenter
+                    running: controllerBusy
+                    visible: controllerBusy
+                    width: 56
+                    height: 56
                 }
             }
         }
