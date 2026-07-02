@@ -435,4 +435,4 @@ D:\CloudDrive\Saved\CRM
 
 ## 📄 License
 
-MIT License
+* 提供给有需要的人免费使用，未经允许禁止转载/用于商业目的
