@@ -18,7 +18,7 @@ OneDrive 中保存真实数据的位置
 D:\RyanC\OneDrive\应用\Saved\ODR\data\example-game
 ```
 
-当前稳定版本为 **v0.1.0**，主要面向游戏存档、软件配置目录和固定路径数据目录的 OneDrive 同步管理。
+当前稳定版本为 **v1.0.5 绿色版**，主要面向游戏存档、软件配置目录和固定路径数据目录的 OneDrive 同步管理。
 
 ---
 
@@ -26,17 +26,17 @@ D:\RyanC\OneDrive\应用\Saved\ODR\data\example-game
 
 ### Windows 绿色版
 
-> 推荐普通用户使用绿色版，无需配置 Python 环境，解压后即可运行。
+> 当前发布形式为 **v1.0.5 绿色版**。推荐普通用户使用绿色版，无需配置 Python 环境，解压后即可运行。
 
 在 GitHub Release 页面下载：
 
 ```text
-OneDriveRedirectManager_v0.1.0_windows_x64_green.zip
+OneDriveRedirectManager_v1.0.5_windows_x64_green.zip
 ```
 
 使用方法：
 
-1. 下载 `OneDriveRedirectManager_v0.1.0_windows_x64_green.zip`
+1. 下载 `OneDriveRedirectManager_v1.0.5_windows_x64_green.zip`
 2. 解压到任意文件夹
 3. 进入解压后的目录
 4. 双击运行 `OneDriveRedirectManager.exe`
@@ -366,9 +366,9 @@ D:\RyanC\OneDrive\应用\Saved\ODR\data\example-game
 
 ## 📦 当前版本
 
-当前稳定版本：**v0.1.0**
+当前稳定版本：**v1.0.5 绿色版**
 
-### v0.1.0 已完成功能
+### v1.0.5 绿色版已完成功能
 
 * OneDrive 工作目录设置
 * 项目新建、编辑、删除和刷新
@@ -390,7 +390,7 @@ D:\RyanC\OneDrive\应用\Saved\ODR\data\example-game
 
 ## ✅ 人工验收记录
 
-v0.1.0 发布前已完成以下人工测试：
+v1.0.5 绿色版发布前已完成以下人工测试：
 
 * 本地有数据，云端不存在
 * 本地为空，云端有数据
