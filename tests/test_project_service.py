@@ -213,3 +213,190 @@ def test_delete_project_includes_underlying_cloud_delete_error(tmp_path: Path, m
     assert f"路径：{cloud_target}" in message
     assert "原因：rmdir fallback still failed" in message
     assert ProjectStore(root).load().get_project("conflict-test") is not None
+
+
+def make_project_data(
+    tmp_path: Path,
+    *,
+    project_id: str = "sync-test",
+    local_name: str = "LocalSync",
+    cloud_relative_path: str = "data/sync-test",
+) -> dict[str, str]:
+    return {
+        "id": project_id,
+        "name": "Sync Test",
+        "local_path": str(tmp_path / "ODR_LocalTest" / local_name),
+        "cloud_relative_path": cloud_relative_path,
+    }
+
+
+def test_create_project_with_local_empty_and_cloud_empty_creates_junction(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    service, root = make_service(tmp_path)
+    data = make_project_data(tmp_path, local_name="LocalEmpty", cloud_relative_path="data/cloud-empty")
+    local_path = Path(data["local_path"])
+    local_path.mkdir(parents=True)
+    cloud_path = root / "data" / "cloud-empty"
+    cloud_path.mkdir(parents=True)
+    events: list[tuple[Path, Path]] = []
+
+    monkeypatch.setattr(project_service_module, "is_junction_or_reparse_point", lambda path: False)
+
+    def fake_create_junction(link_path: Path, target_path: Path) -> None:
+        link = Path(link_path)
+        target = Path(target_path)
+        assert not link.exists()
+        assert target.exists()
+        events.append((link, target))
+        link.mkdir(parents=True)
+
+    monkeypatch.setattr(project_service_module, "create_junction", fake_create_junction)
+
+    service.create_project(data)
+
+    assert events == [(local_path, cloud_path)]
+    assert ProjectStore(root).load().get_project("sync-test") is not None
+    assert cloud_path.exists()
+    assert local_path.exists()
+
+
+def test_create_project_with_local_empty_and_cloud_missing_creates_cloud_and_junction(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    service, root = make_service(tmp_path)
+    data = make_project_data(tmp_path, local_name="LocalEmptyMissing", cloud_relative_path="data/cloud-missing")
+    local_path = Path(data["local_path"])
+    local_path.mkdir(parents=True)
+    cloud_path = root / "data" / "cloud-missing"
+    events: list[tuple[Path, Path]] = []
+
+    monkeypatch.setattr(project_service_module, "is_junction_or_reparse_point", lambda path: False)
+
+    def fake_create_junction(link_path: Path, target_path: Path) -> None:
+        link = Path(link_path)
+        target = Path(target_path)
+        assert not link.exists()
+        assert target.exists()
+        events.append((link, target))
+        link.mkdir(parents=True)
+
+    monkeypatch.setattr(project_service_module, "create_junction", fake_create_junction)
+
+    service.create_project(data)
+
+    assert events == [(local_path, cloud_path)]
+    assert cloud_path.exists()
+    assert ProjectStore(root).load().get_project("sync-test") is not None
+
+
+def test_create_project_with_local_missing_and_cloud_empty_creates_junction(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    service, root = make_service(tmp_path)
+    data = make_project_data(tmp_path, local_name="LocalMissing", cloud_relative_path="data/cloud-empty-existing")
+    local_path = Path(data["local_path"])
+    cloud_path = root / "data" / "cloud-empty-existing"
+    cloud_path.mkdir(parents=True)
+    events: list[tuple[Path, Path]] = []
+
+    monkeypatch.setattr(project_service_module, "is_junction_or_reparse_point", lambda path: False)
+
+    def fake_create_junction(link_path: Path, target_path: Path) -> None:
+        link = Path(link_path)
+        target = Path(target_path)
+        assert not link.exists()
+        assert target.exists()
+        events.append((link, target))
+        link.parent.mkdir(parents=True, exist_ok=True)
+        link.mkdir()
+
+    monkeypatch.setattr(project_service_module, "create_junction", fake_create_junction)
+
+    service.create_project(data)
+
+    assert events == [(local_path, cloud_path)]
+    assert ProjectStore(root).load().get_project("sync-test") is not None
+    assert cloud_path.exists()
+    assert local_path.exists()
+
+
+def test_create_project_with_local_empty_and_cloud_non_empty_creates_junction_and_keeps_cloud_data(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    service, root = make_service(tmp_path)
+    data = make_project_data(tmp_path, local_name="LocalEmptyCloudData", cloud_relative_path="data/cloud-has-data")
+    local_path = Path(data["local_path"])
+    local_path.mkdir(parents=True)
+    cloud_path = root / "data" / "cloud-has-data"
+    cloud_path.mkdir(parents=True)
+    cloud_file = cloud_path / "cloud.txt"
+    cloud_file.write_text("cloud", encoding="utf-8")
+
+    monkeypatch.setattr(project_service_module, "is_junction_or_reparse_point", lambda path: False)
+
+    def fake_create_junction(link_path: Path, target_path: Path) -> None:
+        link = Path(link_path)
+        target = Path(target_path)
+        assert not link.exists()
+        assert target == cloud_path
+        link.mkdir(parents=True)
+
+    monkeypatch.setattr(project_service_module, "create_junction", fake_create_junction)
+
+    service.create_project(data)
+
+    assert cloud_file.read_text(encoding="utf-8") == "cloud"
+    assert ProjectStore(root).load().get_project("sync-test") is not None
+    assert local_path.exists()
+
+
+def test_create_project_with_local_non_empty_and_cloud_non_empty_still_conflicts(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    service, root = make_service(tmp_path)
+    data = make_project_data(tmp_path, local_name="LocalConflictCreate", cloud_relative_path="data/cloud-conflict-create")
+    local_path = Path(data["local_path"])
+    local_path.mkdir(parents=True)
+    (local_path / "local.txt").write_text("local", encoding="utf-8")
+    cloud_path = root / "data" / "cloud-conflict-create"
+    cloud_path.mkdir(parents=True)
+    (cloud_path / "cloud.txt").write_text("cloud", encoding="utf-8")
+
+    monkeypatch.setattr(project_service_module, "is_junction_or_reparse_point", lambda path: False)
+
+    with pytest.raises(RuntimeError, match="CONFLICT"):
+        service.create_project(data)
+
+    assert ProjectStore(root).load().get_project("sync-test") is None
+
+
+def test_create_project_with_wrong_or_broken_junction_still_rejects(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    service, root = make_service(tmp_path)
+    data = make_project_data(tmp_path, local_name="BrokenJunction", cloud_relative_path="data/broken-junction")
+
+    monkeypatch.setattr(project_service_module, "is_junction_or_reparse_point", lambda path: Path(path) == Path(data["local_path"]))
+    monkeypatch.setattr(project_service_module, "points_to_target", lambda link, target: False)
+
+    with pytest.raises(RuntimeError, match="本地路径已经是链接，但未指向当前 OneDrive 目标文件夹。"):
+        service.create_project(data)
+
+    assert ProjectStore(root).load().get_project("sync-test") is None
+
+
+def test_create_project_restores_empty_local_directory_when_junction_creation_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    service, root = make_service(tmp_path)
+    data = make_project_data(tmp_path, local_name="LocalRestoreOnFailure", cloud_relative_path="data/restore-on-failure")
+    local_path = Path(data["local_path"])
+    local_path.mkdir(parents=True)
+    cloud_path = root / "data" / "restore-on-failure"
+    cloud_path.mkdir(parents=True)
+
+    monkeypatch.setattr(project_service_module, "is_junction_or_reparse_point", lambda path: False)
+
+    def fake_create_junction(link_path: Path, target_path: Path) -> None:
+        assert not Path(link_path).exists()
+        raise RuntimeError("junction creation failed")
+
+    monkeypatch.setattr(project_service_module, "create_junction", fake_create_junction)
+
+    with pytest.raises(RuntimeError, match="junction creation failed"):
+        service.create_project(data)
+
+    assert local_path.exists()
+    assert local_path.is_dir()
+    assert list(local_path.iterdir()) == []
+    assert cloud_path.exists()
+    assert ProjectStore(root).load().get_project("sync-test") is None

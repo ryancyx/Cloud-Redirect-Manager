@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import logging
 import os
@@ -121,6 +121,24 @@ class ProjectService:
             created_at=existing.created_at if existing else stamp,
             updated_at=stamp,
         )
+    def _create_junction_for_empty_local(self, local_path: Path, cloud_path: Path) -> None:
+        removed_empty_local = False
+
+        if local_path.exists():
+            if not local_path.is_dir() or dir_has_entries(local_path):
+                raise RuntimeError("当前状态无法自动处理，请检查本地和 OneDrive 目录内容。")
+            local_path.rmdir()
+            removed_empty_local = True
+
+        try:
+            create_junction(local_path, cloud_path)
+        except Exception:
+            if removed_empty_local and not local_path.exists():
+                try:
+                    local_path.mkdir(parents=True, exist_ok=True)
+                except Exception:
+                    logger.exception("Failed to restore empty local directory after junction creation failure: %s", local_path)
+            raise
 
     def _sync_project(self, project: Project, conflict_strategy: str | None = None) -> None:
         root = self._ensure_root_set()
@@ -145,12 +163,15 @@ class ProjectService:
             create_junction(local_path, cloud_path)
             logger.info("Moved local data to cloud and created junction: %s -> %s", local_path, cloud_path)
             return
-
         if cloud_has_data and (not local_exists or not local_has_data):
-            if local_exists and local_path.is_dir() and not dir_has_entries(local_path):
-                local_path.rmdir()
-            create_junction(local_path, cloud_path)
+            self._create_junction_for_empty_local(local_path, cloud_path)
             logger.info("Created junction to cloud data: %s -> %s", local_path, cloud_path)
+            return
+
+        if not local_has_data and not cloud_has_data and (local_exists or cloud_exists):
+            ensure_dir(cloud_path)
+            self._create_junction_for_empty_local(local_path, cloud_path)
+            logger.info("Created junction to empty cloud directory: %s -> %s", local_path, cloud_path)
             return
 
         if local_has_data and cloud_has_data:
@@ -168,11 +189,8 @@ class ProjectService:
                 logger.info("Moved local data to cloud and recreated junction: %s -> %s", local_path, cloud_path)
                 return
             raise RuntimeError("CONFLICT")
-
         if not local_exists and not cloud_exists:
             raise RuntimeError("本地和云端目录都不存在，无法建立同步。")
-        if local_exists and not local_has_data and cloud_exists and not cloud_has_data:
-            raise RuntimeError("本地和云端目录都为空，无法判断应使用哪一侧。")
         raise RuntimeError("当前状态无法自动处理，请检查本地和 OneDrive 目录内容。")
 
     def create_project(self, data: dict[str, str], conflict_strategy: str | None = None) -> None:
